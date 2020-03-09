@@ -2,7 +2,7 @@
 
 #include "boot/atags.h"
 #include "lib/printk.h"
-#include "hardware.h"
+#include "boot/hardware_detect.h"
 #include "lib/string.h"
 #include "lib/memset.h"
 
@@ -10,6 +10,7 @@
 /* http://www.raspberrypi.org/forums/viewtopic.php?t=10889&p=123721 */
 /* http://www.simtec.co.uk/products/SWLINUX/files/booting_article.html */
 
+static struct atag_info_t atag_info;
 
 void atags_dump(uint32_t *atags) {
 
@@ -170,7 +171,7 @@ static int parse_cmdline_int(char *cmdline, char *key) {
 	return result;
 }
 
-void atags_detect(uint32_t *atags, struct atag_info_t *info) {
+void atags_detect(uint32_t *atags) {
 
 	/* each tag has at least 32-bit size and then 32-bit value 	*/
 	/* some tags have multiple values				*/
@@ -181,7 +182,7 @@ void atags_detect(uint32_t *atags, struct atag_info_t *info) {
 	char *cmdline;
 
 	/* clear out the info array */
-	memset(info,0,sizeof(struct atag_info_t));
+	memset(&atag_info,0,sizeof(struct atag_info_t));
 
 	while(1) {
 		size=tags[0];
@@ -199,7 +200,7 @@ void atags_detect(uint32_t *atags, struct atag_info_t *info) {
 			if (tags[3]!=0) {
 				printk("Warning!  We do not handle memory not starting at zero!\n");
 			}
-			info->ramsize=total_ram;
+			atag_info.ramsize=total_ram;
 			tags += size;
 			break;
 
@@ -236,52 +237,10 @@ void atags_detect(uint32_t *atags, struct atag_info_t *info) {
 		case ATAG_CMDLINE:
 			cmdline = (char *)(&tags[2]);
 
-			info->framebuffer_x=parse_cmdline_int(cmdline,"fbwidth");
-			info->framebuffer_y=parse_cmdline_int(cmdline,"fbheight");
+			atag_info.framebuffer_x=parse_cmdline_int(cmdline,"fbwidth");
+			atag_info.framebuffer_y=parse_cmdline_int(cmdline,"fbheight");
 
-			info->revision=parse_cmdline_int(cmdline,"rev");
-
-			/* http://elinux.org/RPi_HardwareHistory */
-			switch(info->revision) {
-				case 0x2:
-				case 0x3:
-				case 0x4:
-				case 0x5:
-				case 0x6:
-				case 0xd:
-				case 0xe:
-				case 0xf:	info->hardware_type=RPI_MODEL_B;
-						break;
-				case 0x7:
-				case 0x8:
-				case 0x9:	info->hardware_type=RPI_MODEL_A;
-						break;
-				case 0x10:
-				case 0x13:	info->hardware_type=RPI_MODEL_BPLUS;
-						break;
-				case 0x11:
-				case 0x14:	info->hardware_type=RPI_COMPUTE_NODE;
-						break;
-				case 0x12:
-				case 0x15:	info->hardware_type=RPI_MODEL_APLUS;
-						break;
-				case 0x90092:
-				case 0x90093:
-						info->hardware_type=RPI_MODEL_ZERO;
-						break;
-				case 0xa01040:
-				case 0xa01041:
-				case 0xa21041:
-				case 0xa22042:
-						info->hardware_type=RPI_MODEL_2B;
-						break;
-				case 0xa02082:
-				case 0xa22082:
-						info->hardware_type=RPI_MODEL_3B;
-						break;
-				default:	info->hardware_type=RPI_UNKNOWN;
-						break;
-			}
+			atag_info.revision=parse_cmdline_int(cmdline,"rev");
 
 			tags += size;
 			break;
@@ -299,4 +258,15 @@ void atags_detect(uint32_t *atags, struct atag_info_t *info) {
 	}
 }
 
+
+uint32_t atags_get_memory(void) {
+
+	return atag_info.ramsize;
+
+}
+uint32_t atags_get_revision(void) {
+
+	return atag_info.revision;
+
+}
 

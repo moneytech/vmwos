@@ -17,15 +17,30 @@ struct romfs_file_header_t {
 	int data_start;
 };
 
+int32_t romfs_mount(struct superblock_type *superblock,
+		struct block_dev_type *block);
+
+#if 0
 int32_t open_romfs_file(char *name,
 		struct romfs_file_header_t *file);
-int32_t romfs_get_inode(int32_t dir_inode, const char *name);
-int32_t romfs_read_file(uint32_t inode, uint32_t offset,
-			void *buf,uint32_t count);
-int32_t romfs_mount(struct superblock_t *superblock);
-int32_t romfs_stat(int32_t inode, struct stat *buf);
-int32_t romfs_getdents(uint32_t dir_inode,
-		uint32_t *current_inode, void *buf,uint32_t size);
+int32_t romfs_get_inode(int32_t inode_number, struct inode_type *inode);
+
+
+int32_t romfs_read_inode(struct inode_type *inode);
+int32_t romfs_lookup_inode(struct inode_type *dir_inode, const char *name);
+
+int32_t romfs_getdents(struct superblock_type *superblock,
+		uint32_t dir_inode,
+		uint64_t *current_progress, void *buf,uint32_t size);
+int32_t romfs_statfs(struct superblock_type *superblock,struct vmwos_statfs *buf);
+
+int32_t romfs_read_file(
+			struct superblock_type *superblock, uint32_t inode,
+			char *buf,uint32_t count, uint64_t *offset);
+int32_t romfs_write_file(struct superblock_type *superblock, uint32_t inode,
+			const char *buf,uint32_t count, uint64_t *offset);
+
+#endif
 
 #define ROMFS_TYPE_HARDLINK	0
 #define ROMFS_TYPE_DIRECTORY	1

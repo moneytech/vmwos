@@ -1,10 +1,12 @@
 #include <stdint.h>
 
-#include "syscalls/sysinfo.h"
-#include "time.h"
-#include "memory.h"
 #include "lib/memset.h"
-#include "process.h"
+#include "lib/smp.h"
+
+#include "syscalls/sysinfo.h"
+#include "time/time.h"
+#include "memory/memory.h"
+#include "processes/process.h"
 
 int32_t sysinfo(struct sysinfo *buf) {
 
@@ -18,7 +20,7 @@ int32_t sysinfo(struct sysinfo *buf) {
 	/* no loadavg info */
 
 	/* Total RAM */
-	buf->total_ram=memory_total;
+	buf->total_ram=memory_get_total();
 
 	/* Free RAM */
 	buf->free_ram=memory_total_free();
@@ -37,7 +39,7 @@ int32_t sysinfo(struct sysinfo *buf) {
 	buf->procs_ready=ready_proc_count;
 
 	/* Idle time */
-	buf->idle_time=(proc_first->total_time)/TIMER_HZ;
+	buf->idle_time=(proc_first->user_time)/TIMER_HZ;
 
 	return 0;
 }

@@ -4,30 +4,27 @@
 
 #include "syscalls.h"
 #include "vmwos.h"
+#include "vlibc.h"
 
-#define MAX_ERRNO	40
+static const char error_none[]=		"No error";
+static const char error_enoent[]=	"ENOENT: File not found";
+static const char error_e2big[]=	"E2BIG: Too big";
+static const char error_ebadf[]=	"EBADF: Bad file descriptor";
+static const char error_enomem[]=	"ENOMEM: Not enougn memory";
+static const char error_enodev[]=	"ENODEV: No such device";
+static const char error_enotdir[]=	"ENOTDIR: Not a directory";
+static const char error_eisdir[]=	"EISDIR: Is a directory";
+static const char error_enfile[]=	"ENFILE: Not enough fds";
+static const char error_enotty[]=	"ENOTTY: Unhandled ioctl";
+static const char error_enospc[]=	"ENOSPC: No more space";
+static const char error_erofs[]=	"EROFS: Read only file system";
+static const char error_erange[]=	"ERANGE: Result out of range";
+static const char error_enosys[]=	"ENOSYS: No such system call";
+static const char error_generic[]=	"Unknown error";
 
-#define ENOENT	2	/* File not found..... */
-#define EBADF	9	/* Bad file descriptor */
-#define ENOMEM	12	/* Not enough memory.. */
-#define ENODEV	19	/* No such device..... */
-#define ENOTDIR	20	/* Not a directory.... */
-#define ENFILE	23	/* Not enough fds..... */
-#define ERANGE	34	/* Result out of range */
-#define ENOSYS	38	/* No such system call */
 
-static char error_none[]=	"No error";
-static char error_enoent[]=	"File not found";
-static char error_ebadf[]=	"Bad file descriptor";
-static char error_enomem[]=	"Not enougn memory";
-static char error_enodev[]=	"No such device";
-static char error_enotdir[]=	"Not a directory";
-static char error_enfile[]=	"Not enough fds";
-static char error_erange[]=	"Result out of range";
-static char error_enosys[]=	"No such system call";
-static char error_generic[]=	"Unknown error";
 
-static char *error_table[MAX_ERRNO]={
+static const char *error_table[MAX_ERRNO]={
 	error_none,	/* 0 */
 	error_generic,	/* 1 */
 	error_enoent,	/* 2 ENOENT */
@@ -35,7 +32,7 @@ static char *error_table[MAX_ERRNO]={
 	error_generic,	/* 4 */
 	error_generic,	/* 5 */
 	error_generic,	/* 6 */
-	error_generic,	/* 7 */
+	error_e2big,	/* 7 E2BIG */
 	error_generic,	/* 8 */
 	error_ebadf,	/* 9 EBADF */
 	error_generic,	/* 10 */
@@ -49,16 +46,16 @@ static char *error_table[MAX_ERRNO]={
 	error_generic,	/* 18 */
 	error_enodev,	/* 19 ENODEV */
 	error_enotdir,	/* 20 ENOTDIR */
-	error_generic,	/* 21 */
+	error_eisdir,	/* 21 EISDIR */
 	error_generic,	/* 22 */
 	error_enfile,	/* 23 ENFILE */
 	error_generic,	/* 24 */
-	error_generic,	/* 25 */
+	error_enotty,	/* 25 ENOTTY */
 	error_generic,	/* 26 */
 	error_generic,	/* 27 */
-	error_generic,	/* 28 */
+	error_enospc,	/* 28 ENOSPC */
 	error_generic,	/* 29 */
-	error_generic,	/* 30 */
+	error_erofs,	/* 30 EROFS */
 	error_generic,	/* 31 */
 	error_generic,	/* 32 */
 	error_generic,	/* 33 */
@@ -66,14 +63,14 @@ static char *error_table[MAX_ERRNO]={
 	error_generic,	/* 35 */
 	error_generic,	/* 36 */
 	error_generic,	/* 37 */
-	error_generic,	/* 38 */
-	error_enosys,	/* 39 ENOSYS */
+	error_enosys,	/* 38 ENOSYS */
+	error_generic,	/* 39 */
 };
 
 
-int errno=0;
 
-char *strerror(int errnum) {
+
+const char *strerror(int errnum) {
 
 	if (errnum<0) errnum=-errnum;
 

@@ -2,7 +2,6 @@
 #include <stdint.h>
 
 #include "lib/printk.h"
-#include "mmio.h"
 
 #include "drivers/framebuffer/framebuffer.h"
 #include "drivers/framebuffer/framebuffer_console.h"
@@ -12,6 +11,9 @@
 #include "lib/string.h"
 #include "lib/memcpy.h"
 #include "lib/memset.h"
+#include "lib/errors.h"
+
+static uint32_t framebuffer_console_initialized=0;
 
 //static int debug=1;
 
@@ -72,6 +74,8 @@ int framebuffer_console_putchar(int fore_color, int back_color,
 
 	int xx,yy;
 
+	if (!framebuffer_console_initialized) return -ENODEV;
+
 	for(yy=0;yy<font_ysize;yy++) {
 		for(xx=0;xx<8;xx++) {
 			if (current_font[(ch*font_ysize)+yy] & (1<<(7-xx))) {
@@ -125,15 +129,6 @@ int framebuffer_console_home(void) {
 	return 0;
 }
 
-int framebuffer_console_init(void) {
-
-	framebuffer_console_clear();
-	framebuffer_console_home();
-
-	return 0;
-}
-
-
 
 int framebuffer_console_push(void) {
 
@@ -179,6 +174,8 @@ int framebuffer_console_write(const char *buffer, int length) {
 	int distance;
 	int x;
 	int c;
+
+	if (!framebuffer_console_initialized) return -ENODEV;
 
 	while(1) {
 		if (ansi_state==ANSI_STATE_NORMAL) {
@@ -385,9 +382,10 @@ int framebuffer_console_write(const char *buffer, int length) {
 
 			refresh_screen=1;
 
-			memcpy(&(text_console[0]),&(text_console[CONSOLE_X]),
+			/* we overlap */
+			memmove(&(text_console[0]),&(text_console[CONSOLE_X]),
 				(CONSOLE_Y-1)*CONSOLE_X*sizeof(unsigned char));
-			memcpy(&(text_color[0]),&(text_color[CONSOLE_X]),
+			memmove(&(text_color[0]),&(text_color[CONSOLE_X]),
 				(CONSOLE_Y-1)*CONSOLE_X*sizeof(unsigned char));
 
 			for(x=0;x<CONSOLE_X;x++) {
@@ -420,3 +418,14 @@ int framebuffer_console_val(int x, int y) {
 	return text_console[x+(y*CONSOLE_X)];
 
 }
+
+int framebuffer_console_init(void) {
+
+	framebuffer_console_clear();
+	framebuffer_console_home();
+
+	framebuffer_console_initialized=1;
+
+	return 0;
+}
+

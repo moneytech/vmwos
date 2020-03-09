@@ -1,3 +1,35 @@
+0.21 -- ??
++ dmesg command
++ dup2() / file redirection
+
+0.20 -- 21 February 2020
++ full VFS layer
++ writable filesystem
++ full char/block device support
++ text editor
++ demoscene demo
++ relocatable symbols in bFLT executables
+
+0.20-pre -- April 2018
++ multicore support
+
+0.19 -- 12 April 2018
++ Add df/statfs support
++ Framebuffer support mostly working on Pi3
+
+0.18 -- 25 March 2018
++ Add bFLT binary support
++ Memory protection on Pi3 works
+
+0.17 -- 16 March 2018
++ Actually free process resources on exit/waitpid
++ Lots of code cleanup
++ waitpid WNOHANG support (can run jobs in background)
+
+0.16 -- ?? March 2018
++ Pi2/Pi3 support
++ device-tree support
+
 0.15 -- 20 May 2016
 + new syscalls: chdir,nanosleep
 + More comlpete stats in sysinfo

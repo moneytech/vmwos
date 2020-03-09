@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include "lib/printk.h"
-#include "mmio.h"
 
 #include "drivers/firmware/mailbox.h"
 #include "drivers/framebuffer/framebuffer.h"
@@ -16,12 +15,18 @@
 #include "lib/string.h"
 #include "lib/memcpy.h"
 
+#include "memory/memory.h"
+#include "memory/mmu-common.h"
+
+#define FB_WIDTH	640
+#define FB_HEIGHT	480
+
 static uint32_t debug=1;
 
 static int framebuffer_initialized=0;
 
 static struct frame_buffer_info_type current_fb;
-static unsigned char offscreen[2048*2048*3];
+static unsigned char *offscreen;
 
 struct frame_buffer_info_type {
 	int phys_x,phys_y;	/* IN: Physical Width / Height*/
@@ -42,7 +47,8 @@ int framebuffer_ready(void) {
 
 static void dump_framebuffer_info(struct frame_buffer_info_type *fb) {
 
-	printk("px %d py %d vx %d vy %d pitch %d depth %d x %d y %d ptr %x sz %d\n",
+	printk("px %d py %d vx %d vy %d pitch %d depth "
+		"%d x %d y %d ptr %x sz %d\n",
 		fb->phys_x,fb->phys_y,
 		fb->virt_x,fb->virt_y,
 		fb->pitch,fb->depth,
@@ -57,6 +63,7 @@ char *framebuffer_init(int x, int y, int depth) {
 	struct frame_buffer_info_type fb_info  __attribute__ ((aligned(16)));;
 
 	int result;
+	uint32_t addr,mbox_addr;
 
 	fb_info.phys_x=x;
 	fb_info.phys_y=y;
@@ -76,8 +83,16 @@ char *framebuffer_init(int x, int y, int depth) {
 		dump_framebuffer_info(&fb_info);
 	}
 
-	result=mailbox_write( (unsigned int)(&fb_info)+0x40000000 ,
-		MAILBOX_CHAN_FRAMEBUFFER);
+	addr=(uint32_t)&fb_info;
+
+	/* Flush dcache so value is in memory */
+	flush_dcache((uint32_t)&fb_info, (uint32_t)&fb_info+sizeof(fb_info));
+
+	mbox_addr=firmware_phys_to_bus_address(addr);
+	//printk("Writing to mailbox %x\n",mbox_addr);
+
+	result=mailbox_write(mbox_addr,
+			MAILBOX_CHAN_FRAMEBUFFER);
 
 	if (result<0) {
 		printk("Mailbox write failed\n");
@@ -85,7 +100,6 @@ char *framebuffer_init(int x, int y, int depth) {
 	}
 
 	result=mailbox_read(MAILBOX_CHAN_FRAMEBUFFER);
-
 	if (debug) {
 		printk("fb: we got ");
 		dump_framebuffer_info(&fb_info);
@@ -96,13 +110,39 @@ char *framebuffer_init(int x, int y, int depth) {
 		return NULL;
 	}
 
+	/* Flush dcache again */
+	flush_dcache((uint32_t)&fb_info, (uint32_t)&fb_info+sizeof(fb_info));
+
+#ifdef ARMV7
+	if (fb_info.pointer) {
+		printk("FB: pointer=%x\n",fb_info.pointer);
+		fb_info.pointer&=~0xc0000000;
+		printk("FB: pointer adjusted=%x\n",fb_info.pointer);
+	}
+#endif
 	current_fb.pointer=(int)(fb_info.pointer);
 	current_fb.phys_x=fb_info.phys_x;
 	current_fb.phys_y=fb_info.phys_y;
 	current_fb.pitch=fb_info.pitch;
 	current_fb.depth=fb_info.depth;
 
-	framebuffer_initialized=1;
+	if (fb_info.pointer!=0) {
+		printk("framebuffer: allocating %dK "
+			"for a %dx%dx%d ofscreen buffer\n",
+			(fb_info.phys_x*fb_info.phys_y*(fb_info.depth/8))/1024,
+			fb_info.phys_x,fb_info.phys_y,fb_info.depth);
+
+		offscreen=memory_allocate(
+			fb_info.phys_x*fb_info.phys_y*(fb_info.depth/8),
+				MEMORY_KERNEL);
+	}
+
+	if ((fb_info.pointer==0) ||(offscreen==NULL)) {
+		printk("ERROR initializing framebuffer!\n");
+	}
+	else {
+		framebuffer_initialized=1;
+	}
 
 	return (char *)(fb_info.pointer);
 }
@@ -184,32 +224,51 @@ int framebuffer_push(void) {
 
 }
 
-int framebuffer_gradient(void) {
+int framebuffer_gradient(uint32_t type) {
 
 	int x;
 
-	for(x=0;x<current_fb.phys_x;x++) {
-		framebuffer_vline( (x*256)/800, /* hardcoded, can't divide? */ 
-				0,current_fb.phys_y-1, x);
+	if (type==0) {
+
+		for(x=0;x<current_fb.phys_x;x++) {
+			/* hardcoded to FB_WIDTH, */
+			/* not guaranteed we have divide */
+			framebuffer_vline( (x*256)/FB_WIDTH,
+					0,current_fb.phys_y-1, x);
+		}
+		framebuffer_push();
 	}
-	framebuffer_push();
+	else {
+		printk("Unknown gradient type %d\n",type);
+	}
 
 	return 0;
 }
 
+//void fast_fb_update(char *fb, char *src);
+
 int framebuffer_load(int x, int y, int depth, char *pointer) {
 
+//	int i;
 
-	int i;
+	/* assume our pointer is aligned and pitch perfect */
 
-	for(i=0;i<y;i++) {
-		memcpy( (offscreen+i*current_fb.pitch),
-			(pointer+i*800),
-			x*(depth/8));
-	}
+//	fast_fb_update((char *)current_fb.pointer,pointer);
+
+//	A bit faster
+	memcpy((unsigned char *)current_fb.pointer,
+		pointer,current_fb.phys_x*current_fb.phys_y*3);
+
+//	original code
+//	for(i=0;i<y;i++) {
+//		memcpy(
+//			(offscreen+i*current_fb.pitch),
+//			pointer+(i*x*(depth/8)),
+//			x*(depth/8));
+//	}
 
 	/* Yes, this dual copies for now */
-	framebuffer_push();
+//	framebuffer_push();
 
 	return 0;
 

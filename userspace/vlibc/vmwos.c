@@ -52,22 +52,22 @@ int vmwos_setfont(int which) {
 	return r0;
 }
 
-int vmwos_gradient(void) {
+int vmwos_gradient(uint32_t type) {
 
 	register long r7 __asm__("r7") = __NR_gradient;
-	register long r0 __asm__("r0");
+	register long r0 __asm__("r0") = type;
 
 	asm volatile(
 		"svc #0\n"
 		: "=r"(r0) /* output */
-		: "r"(r7) /* input */
+		: "r"(r7), "r"(r0) /* input */
 		: "memory");
 
 	return r0;
 
 }
 
-int vmwos_framebuffer_load(int x, int y, int depth, char *fb) {
+int vmwos_framebuffer_load(int x, int y, int depth, unsigned char *fb) {
 
 	register long r7 __asm__("r7") = __NR_framebuffer_load;
 	register long r0 __asm__("r0")=x;
@@ -119,6 +119,21 @@ void *vmwos_malloc(uint32_t size) {
 
 	register long r7 __asm__("r7") = __NR_malloc;
 	register long r0 __asm__("r0") = size;
+	register long r1 __asm__("r1") = 1; // memory user
+
+	asm volatile(
+		"svc #0\n"
+		: "=r"(r0)
+		: "r"(r7), "0"(r0), "r"(r1)
+		: "memory");
+
+	return (void *)r0;
+}
+
+int vmwos_core_poke(uint32_t which) {
+
+	register long r7 __asm__("r7") = __NR_core_poke;
+	register long r0 __asm__("r0") = which;
 
 	asm volatile(
 		"svc #0\n"
@@ -126,6 +141,23 @@ void *vmwos_malloc(uint32_t size) {
 		: "r"(r7), "0"(r0)
 		: "memory");
 
-	return (void *)r0;
+	return r0;
+}
+
+int vmwos_play_sound(uint32_t *buffer, uint32_t length, uint32_t repeat) {
+
+	register long r7 __asm__("r7") = __NR_play_sound;
+	register long r0 __asm__("r0") = (unsigned long)buffer;
+	register long r1 __asm__("r1") = length;
+	register long r2 __asm__("r2") = repeat;
+
+
+	asm volatile(
+		"svc #0\n"
+		: "=r"(r0)
+		: "r"(r7), "0"(r0), "r"(r1), "r"(r2)
+		: "memory");
+
+	return r0;
 }
 

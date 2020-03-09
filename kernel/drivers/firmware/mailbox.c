@@ -1,15 +1,27 @@
 /* based on info at https://www.cl.cam.ac.uk/projects/raspberrypi/tutorials/os/screen01.html */
 /* https://github.com/raspberrypi/firmware/wiki/Accessing-mailboxes */
 /* See also arch/arm/mach-bcm2708/vcio.c */
+/* https://github.com/raspberrypi/firmware/wiki/Mailboxes */
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include "lib/printk.h"
-#include "mmio.h"
-
+#include "drivers/bcm2835/bcm2835_io.h"
 #include "drivers/firmware/mailbox.h"
 
+
+/* See include/drivers/firmware/mailbox.h for a long explanation */
+uint32_t firmware_phys_to_bus_address(uint32_t addr) {
+
+#ifdef ARMV7
+	return (addr|0xC0000000);
+#else
+	return (addr|0x40000000);
+#endif
+}
+
+/* should always write mailbox1 */
 int mailbox_write(unsigned int value, unsigned int channel) {
 
 	printk("MAILBOX_WRITE: writing value=%x channel %x\n",
@@ -31,16 +43,21 @@ int mailbox_write(unsigned int value, unsigned int channel) {
 
 	/* Wait until mailbox is ready */
 
-	while( (mmio_read(MAILBOX_STATUS) & MAIL_FULL) ) {
+	while( (bcm2835_read(MAILBOX1_STATUS) & MAIL_FULL) ) {
 		printk("Write mailbox full!\n");
 	}
 
+#ifdef ARMV7
+	asm volatile("DMB ISHST");
+#endif
+
 	/* write the command */
-	mmio_write(MAILBOX_WRITE,channel|value);
+	bcm2835_write(MAILBOX_WRITE,channel|value);
 
 	return 0;
 }
 
+/* Should always read mailbox0 */
 int mailbox_read(unsigned int channel) {
 
 	unsigned int mail;
@@ -57,11 +74,15 @@ int mailbox_read(unsigned int channel) {
 
 	/* Wait until mailbox has something there */
 
-	while((mmio_read(MAILBOX_STATUS) & MAIL_EMPTY) ) {
+	while((bcm2835_read(MAILBOX0_STATUS) & MAIL_EMPTY) ) {
 		printk("mailbox_read: mail_empty\n");
 	}
 
-	mail=mmio_read(MAILBOX_READ);
+#ifdef ARMV7
+	asm volatile("DMB ISHST");
+#endif
+
+	mail=bcm2835_read(MAILBOX_READ);
 
 	/* Got mail from the wrong channel!*/
 	/* FIXME: Should we try again? */

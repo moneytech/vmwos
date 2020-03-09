@@ -4,7 +4,11 @@
 
 #include "syscalls.h"
 #include "vmwos.h"
+#include "vlibc.h"
 
+/*****************************************************/
+/* String compare functions                          */
+/*****************************************************/
 
 int strncmp(const char *s1, const char *s2, uint32_t n) {
 
@@ -23,6 +27,10 @@ int strncmp(const char *s1, const char *s2, uint32_t n) {
 	return 0;
 }
 
+/*****************************************************/
+/* String length functions                           */
+/*****************************************************/
+
 int strlen(const char *s) {
 
 	int length=0;
@@ -32,20 +40,108 @@ int strlen(const char *s) {
 	return length;
 }
 
+/*****************************************************/
+/* String copy functions                             */
+/*****************************************************/
+
+
+/* At most n bytes of src are copied to dest */
+/* If no nul in the first n bytes of src, dest will *not* be nul terminated */
+/* If length of src less than n, nuls are padded */
+char *strncpy(char *dest, const char *src, uint32_t n) {
+
+	uint32_t i;
+
+	for(i=0; i<n; i++) {
+		dest[i]=src[i];
+		if (src[i]=='\0') break;
+	}
+	for(i=i;i<n;i++) {
+		dest[i]='\0';
+	}
+
+	return dest;
+
+}
+
+/*****************************************************/
+/* String search functions                           */
+/*****************************************************/
+
+/* Returns a pointer to the first occurrence of the character c
+   in the string s, or NULL if not found.
+*/
+
+char *strchr (const char *s, int32_t c) {
+
+	do {
+		if (*s == c) return (char *)s;
+	} while (*s++);
+
+	return NULL;
+}
+
+
+/* Returns a pointer to the last occurrence of
+   the character c in the string s
+   or NULL if not found.
+*/
+
+char *strrchr (const char *s, int32_t c) {
+
+	char *returnval = NULL;
+
+	do {
+		if (*s == c) returnval = (char *) s;
+	} while (*s++);
+
+	return returnval;
+}
+
+/* Search for the substring sub in the string string,
+   not including the terminating null characters.
+   A pointer to the first occurrence of sub is returned,
+   or NULL if the substring is absent.
+   If sub points to a string with zero length, the function returns string.
+*/
+
+char *strstr (const char *s1, const char *s2) {
+
+	const char *p = s1;
+	const int32_t len = strlen(s2);
+
+	/* Find first char, and if that matches then to a strncmp */
+	for (; (p = strchr (p, *s2)) != 0; p++) {
+		if (strncmp (p, s2, len) == 0) return (char *)p;
+	}
+
+	return NULL;
+}
+
+
+
+
+
 int32_t atoi(char *string) {
 
 	int result=0;
 	char *ptr;
+	int sign=1;
 
 	ptr=string;
 
-	while(*ptr!=0) {
+	if (*ptr=='-') {
+		sign=-1;
+		ptr++;
+	}
+
+	while((*ptr!='\0') && isdigit(*ptr)) {
 		result*=10;
 		result+=(*ptr)-'0';
 		ptr++;
 	}
 
-	return result;
+	return result*sign;
 }
 
 void *memset(void *s, int c, uint32_t n) {
@@ -140,3 +236,105 @@ void *memset(void *s, int c, uint32_t n) {
 	return s;
 }
 
+#if 0
+//void *memcpy_byte(void *dest, const void *src, uint32_t n) {
+void *memcpy(void *dest, const void *src, uint32_t n) {
+
+        int i;
+
+        char *d=dest;
+        const char *s=src;
+
+        for(i=0;i<n;i++) {
+                *d=*s;
+                d++;
+		s++;
+        }
+
+        return dest;
+}
+#endif
+
+#if 0
+
+void *memcpy_4bytes(void *dest, const void *src, uint32_t n) {
+
+	uint32_t i;
+
+	uint32_t *int_dest,*int_src;
+	uint8_t *char_dest,*char_src;
+
+	uint32_t tail;
+
+	tail=n%4;
+
+	int_dest=(uint32_t *)dest;
+	int_src=(uint32_t *)src;
+
+	char_dest=(uint8_t *)dest;
+	char_src=(uint8_t *)src;
+
+
+	for(i=0;i<((n-tail)/4);i++) {
+		int_dest[i]=int_src[i];
+	}
+
+	/* Do trailing edge */
+	for(i=0;i<tail;i++) {
+		char_dest[i]=char_src[i];
+	}
+
+	return dest;
+}
+
+#endif
+
+
+	/* Not optimized */
+int32_t memcmp(const void *s1, const void *s2, uint32_t n) {
+
+	int i,result;
+	char *c1,*c2;
+
+	c1=(char *)s1;
+	c2=(char *)s2;
+
+	for(i=0;i<n;i++) {
+		result=c1[i]-c2[i];
+		if (result) return result;
+	}
+
+	return 0;
+}
+
+/* FIXME: not optimized */
+void *memmove(void *dest, const void *src, size_t n) {
+
+	int i;
+	char *d = dest;
+	const char *s = src;
+
+	/* If dest and src same, just return destination */
+	if (d==s) {
+		return d;
+	}
+
+	/* If no overlap, just run memcpy */
+	if ((uintptr_t)s-(uintptr_t)d-n <= -2*n) {
+		return memcpy(d, s, n);
+	}
+
+	/* if desitnation less than src, run forward */
+	/* otherwise, copy backwards */
+	if (d<s) {
+		for(i=0;i<n;i++) {
+			*d++ = *s++;
+		}
+	} else {
+		for(i=n-1;i>=0;i--) {
+			d[i] = s[i];
+		}
+	}
+
+	return dest;
+}

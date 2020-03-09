@@ -1,6 +1,5 @@
 The VMWos -- an operating system by Vincent M. Weaver
 
-
 History:
 ~~~~~~~~
 	This project originated from code written for the
@@ -25,7 +24,7 @@ Building:
 	It is possible to build this on OSX and Windows,
 	I should update with instructions.
 
-	Running "make" should build kernel/kernel.img
+	Running "make" should build kernel/kernel.img and kernel/kernel7.img
 	
 Installing:
 ~~~~~~~~~~~
@@ -35,28 +34,27 @@ Installing:
 	Mount the boot directory on that SD card, and copy
 	the existing kernel.img to a safe place.
 
-	Now copy your vmwos kernel/kernel.img overtop
-	of the existing kernel.img
+	Now copy your vmwos kernel/kernel.img and kernel/kernel7.img overtop
+	the existing kernel.img and kernel7.img
 
 
 Required Hardware:
 ~~~~~~~~~~~~~~~~~~
 
 	Currently VMWos runs on any Raspberry Pi 
-	Model A, B, B+ or A+.
+	Model1 ( A, B, B+ or A+), Model 2, and Model 3
 
-	It will not run on a Raspberry Pi 2 without some
-	changes to the OS (but it should be possible).
+	I have not tested on Pi Zero.
 
-	Running on a Pi 3 will be a lot harder.
+	It has a driver that cna output to the HDMI screen, but that is
+	disabled by default currently (it is slow and buggy).
+	It has no support for USB input.
 
-	It will drive an HDMI screen, but has no support
-	for USB input.
-
-	To get full input/output you will need to buy a USB/Serial
+	To get full input/output you will need to get a USB/Serial
 	adapter and connect to another machine running a terminal
 	program such as minicom.
 
+	Configure your serial device for 115200,8N1
 
 Using:
 ~~~~~~
@@ -84,6 +82,48 @@ For more information:
 	See http://www.deater.net/weave/vmwprod/vmwos
 
 
+Changes that break older Bare-metal 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	See README.hardware
+
+	It is hard running a backward compatible bare-metal OS on 
+	Pi as things keep changing.
+
+	Some of this is mitigated if you parse the device tree
+	found on newer setups.
+
+	Hardware Changes:
+	=================
+	+ On 1GB systems the IO_BASE moved 
+		from 0x20000000 to 0x3f0000000
+	+ Processor architecture changed from ARMv6 to ARMv7 to ARMv8
+	+ On Pi3 the pl011 is hooked to bluetooth, so
+		mini-uart is the default (pl011 is mapped to gpio 32/33)
+	+ ACT LED:
+		Model B was GPIO16, Active Low
+		On 2/B+/A+ was GPIO47, Active High
+		On 3 it is on an i2c/GPIO expander controlled by GPU
+	+ TODO: The Framebuffer address moved on Pi3 (?)
+
+	+ Pi3 the Arasan MMC interface is enabled, and mapped to GPIOs 48-53,
+		Used by wifi?
+	+ Pi3 GPCLK2 is mapped to GPIO 43.
+	+ Pi2/Pi3, firmware brings system up in HYP (hypervisor) mode
+
+	Firmware Changes:
+	=================
+	+ Older firmware, the framebuffer byte order was GRB instead of RGB
+	+ Older firmware, the UART_CLOCK was 3MHz, it's 48MHz on newer
+	+ Older firmware, did ATAGS, newer use device-tree
+	+ Have issue on older-firmware loading kernel image >15MB
+		not sure if bug or not
+
+
+
+
+
+
 Vince Weaver
 vince@deater.net
-20 May 2016
+5 March 2018
